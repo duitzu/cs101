@@ -1,75 +1,80 @@
-#include<stdio.h>
-#include<stdlib.h> 
-#include<time.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
 #include <string.h>
 
-FILE* reportFile;
-FILE* openRecords;
-static char date[32];
+typedef struct lotto_record_t {
+    int lotto_num ;
+    float lotto_receipt;
+    int emp_id;
+    char lotto_date[16];
+    char lotto_time[16];
+}lotto_record_t;
 
-
-typedef struct lottoRecord{
- int lotto_no;//= currentCount
- int lotto_receipt;//= i *55
- int emp_id;//= id
- char lotto_date[32];//= date
- char lotto_time[32];//= Time
-}lotto_record_t; 
-
-void cutTheTime(){ //cut the time to date&time
- time_t now = time(0);
- strftime(date, 100, "%Y%m%d", localtime(&now));
- //strftime(Time, 100, "%H:%M:%S", localtime(&now));
+void print_vorform(FILE* freport) {
+    fprintf(freport, "========= lotto694 Report =========\n");
+    fprintf(freport, "- Date ------ Num. ------ Receipt -\n");
 }
 
+int print_form (FILE* freport ,lotto_record_t day_report, int num) { 
+    fprintf(freport, "%s     %d/%d     %d\n", day_report.lotto_date,
+                                     num,
+                                     (int)day_report.lotto_receipt/55,
+                                     (int)day_report.lotto_receipt);
+    return ((int)day_report.lotto_receipt/55);
+}
 
-int main(){
- 
- reportFile = fopen("report.txt", "w+");
- openRecords = fopen("records.bin", "r");
- 
- lotto_record_t tmp[256];
- int i = 0;
- while(fread(&tmp[i], sizeof(lotto_record_t), 1, openRecords)){
-  //printf("%d\t%d\t%d\t%s\n", tmp[i].lotto_no, tmp[i].lotto_receipt, tmp[i].emp_id, tmp[i].lotto_date);
-  i++;
- } 
+int print_nachform (FILE* freport, int alldate_num ,int all_row_num ,int all_reciept_num ,int all_price_num) {
+    time_t curtime = time (0);
+    char curtime_array[100];
+    fprintf(freport, "-----------------------------------\n");
+    strftime (curtime_array, 100, "%Y%m%d", localtime(&curtime));
+    fprintf(freport,"        %d    %d/%d    %d\n", alldate_num-1, all_row_num ,all_reciept_num, all_price_num);
+    fprintf(freport, "======== %s Printed ========\n", curtime_array);
+    
+}
 
+int main() {
+    FILE* fp;
+    FILE* freport;
+    fp = fopen("records.txt", "rb");
+    freport = fopen("report.bin", "w+");
+    int result = 0, times = 0 , num = 1, plus = 0;
+    int alldate_num = 1, all_row_num =0, all_reciept_num = 1; 
+    float all_price_num = 0.0;
+    lotto_record_t records;
+    lotto_record_t day_report;
+    print_vorform(freport);
+    while (fread(&records, sizeof(records), 1, fp)) {
+        result = strcmp(day_report.lotto_date, records.lotto_date);
+        if (result == 0) {
+            day_report.lotto_receipt += records.lotto_receipt;
+            day_report.lotto_num += records.lotto_num;
+            all_reciept_num += (records.lotto_num);
+            num++;
+        } else {
+            times > 0 ? print_form(freport, day_report, num) : 1;
+            strcpy (day_report.lotto_date, records.lotto_date);
+            day_report.lotto_num = records.lotto_receipt;
+            all_reciept_num += (records.lotto_num);
+            day_report.lotto_receipt = records.lotto_receipt;
+            alldate_num++;
+            times ++;
+            all_row_num += num;
+            num = 1;
+        }
+        if (fread(&records, sizeof(records), 1, fp) == NULL ) {
+            all_row_num += num;
+            plus = print_form(freport, day_report, ++num);
+            fseek(fp, sizeof(records), SEEK_SET);
+        } else {
+            plus = 0;
+        }
+    }
+    all_price_num = all_reciept_num * 55;
+    print_nachform(freport, alldate_num, all_row_num, all_reciept_num, (int)all_price_num);
+    fclose(freport);
+    fclose(fp);
+    return 0;
 
- int no = 0; // = lotto_no = currentCount = i
- int dateSum = 0, noSum, setsSum = 0, receiptSum = 0;
- int j = 0, r = 0;
- 
- fprintf(reportFile,"========= lotto649 Report =========\n");
- fprintf(reportFile,"- Date ------- Num. ------ Receipt -\n");
- 
- while(j<=i){
-  int sets = 0; // lotto_receipt/55
-  int receipt = 0; // =lotto_receipt
-  while(strcmp(tmp[j].lotto_date,tmp[j+1].lotto_date) == 0)j++;
-  
-  for(; r <= j; r++){
-   sets = sets + (tmp[r].lotto_receipt/55);
-   receipt = receipt + tmp[r].lotto_receipt;
-  }
-  r--;
-  no = tmp[r].lotto_no - no;
-  
-  dateSum ++;
-  setsSum = setsSum + sets;
-  receiptSum = receiptSum + receipt;
-  
-  fprintf(reportFile, "%s\t%d/%d\t\t%d\n", tmp[r].lotto_date, no, sets, receipt);
-  no = tmp[r].lotto_no;
-  j++;
- }
- 
- fprintf(reportFile,"-----------------------------------\n");
- fprintf(reportFile,"\t%d\t%d/%d\t\t%d\n", dateSum, tmp[i].lotto_no, setsSum, receiptSum);
- cutTheTime();
- fprintf(reportFile,"======== %s Printed =========", date);
- 
- 
- fclose(reportFile);
- fclose(openRecords);  
 }
